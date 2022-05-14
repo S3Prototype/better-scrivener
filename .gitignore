@@ -7,6 +7,8 @@
 
 # testing
 /coverage
+/jest
+/test
 
 # next.js
 /.next/
@@ -29,6 +31,14 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+*.env
+.env.*
+.env
 
 # vercel
 .vercel
+
+# notes
+todo.txt
+*.txt
+*/*.txt
