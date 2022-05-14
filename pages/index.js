@@ -5,7 +5,7 @@ import Box from "@mui/material/Box";
 import { DndContext } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import Drawer from "../components/Drawer";
+import Drawer from "/components/Drawer";
 
 const DropBox = (props) => {
   const { isOver, setNodeRef } = useDroppable({

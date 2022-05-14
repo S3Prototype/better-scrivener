@@ -1,6 +1,9 @@
+import FolderIcon from "@mui/icons-material/Folder";
+import ArticleIcon from "@mui/icons-material/Article";
 import * as React from "react";
 import { styled, useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
 import Drawer from "@mui/material/Drawer";
 import CssBaseline from "@mui/material/CssBaseline";
 import MuiAppBar from "@mui/material/AppBar";
@@ -36,7 +39,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { useState, useRef } from "react";
+import { useState, useReducer, useEffect, useRef } from "react";
 
 const drawerWidth = 240;
 
@@ -125,13 +128,13 @@ const DragBox = (props) => {
   );
 };
 
-const SortBox = (props) => {
+const SortBox = ({ item, index, children }) => {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({
-      id: props.text,
+      id: item._id,
       data: {
-        text: props.text,
-        index: props.index,
+        item,
+        index,
       },
     });
   const style = {
@@ -141,7 +144,7 @@ const SortBox = (props) => {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {props.children}
+      {children}
     </div>
   );
 };
@@ -172,15 +175,15 @@ export default function PersistentDrawerLeft(props) {
     })
   );
 
-  const SortableItem = ({ index, text }) => {
+  const SortableItem = ({ index, item }) => {
     return (
-      <SortBox index={index} text={text}>
+      <SortBox index={index} item={item}>
         <ListItem disablePadding>
           <ListItemButton>
             <ListItemIcon>
-              {index % 2 === 0 ? <InboxIcon /> : <MailIcon />}
+              {item.__typename === "Note" ? <ArticleIcon /> : <FolderIcon />}
             </ListItemIcon>
-            <ListItemText primary={text} />
+            <ListItemText primary={item.title} />
           </ListItemButton>
         </ListItem>
       </SortBox>
@@ -190,8 +193,8 @@ export default function PersistentDrawerLeft(props) {
   const listItems = () => {
     return (
       <>
-        {itemList.map((text, index) => (
-          <SortableItem text={text} index={index} key={text} />
+        {contents.map((item, index) => (
+          <SortableItem key={item._id} index={index} item={item} />
         ))}
       </>
     );
@@ -203,13 +206,60 @@ export default function PersistentDrawerLeft(props) {
     const { active, over } = event;
 
     if (active.id !== over.id) {
-      setItemList((items) => {
-        const oldIndex = items.indexOf(active.id);
-        const newIndex = items.indexOf(over.id);
-
+      setContents((items) => {
+        const oldIndex = items.findIndex((item) => item._id === active.id);
+        const newIndex = items.findIndex((item) => item._id === over.id);
         return arrayMove(items, oldIndex, newIndex);
       });
     }
+  };
+
+  const getProjectList = (data) => {
+    const contents = data.getProfile.username.project[0];
+  };
+
+  const [contents, setContents] = useState([]);
+
+  useEffect(() => {
+    if (contents.length) return console.log({ contents });
+
+    (async () => {
+      try {
+        const result = await fetch("http://localhost:3000/api/profile");
+        const resultJSON = await result.json();
+        console.log({ resultJSON });
+        const contentArray = resultJSON.data.getProfile.projects[0].contents;
+        contentArray.sort((a, b) => {
+          //sort a before b
+          if (a.position < b.position) return -1;
+          //sort b before a
+          if (a.position > b.position) return 1;
+
+          return 0;
+        });
+        console.log("in use effect", { contentArray });
+        setContents(contentArray);
+      } catch (error) {
+        console.log("Failed to fetch from api endpoint", error);
+      }
+    })();
+  }, [contents]);
+
+  const DrawerItems = () => {
+    return (
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={contents.map((item) => item._id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <List>{listItems()}</List>
+        </SortableContext>
+      </DndContext>
+    );
   };
 
   return (
@@ -255,18 +305,13 @@ export default function PersistentDrawerLeft(props) {
           </IconButton>
         </DrawerHeader>
         <Divider />
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={itemList}
-            strategy={verticalListSortingStrategy}
-          >
-            <List>{listItems()}</List>
-          </SortableContext>
-        </DndContext>
+        {!contents.length ? (
+          <Box sx={{ display: "flex" }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <DrawerItems />
+        )}
         <Divider />
         <List>
           {["All mail", "Trash", "Spam"].map((text, index) => (
